@@ -25,7 +25,7 @@ this mod export addon:
         //   对于非主语言来说，如果没有对应的Find翻译文件，则使用主语言的Find翻译文件，如果没有对应的翻译项，则使用主语言Find翻译文件中的翻译项进行搜索。
         "replaceIndexFile": "to/file.json5",
         // 搜索文件（以语言列表的形式）
-        // 其中的 language 项对应到 Navigator.language 
+        // 其中的 language 项对应到 Navigator.language 的前缀
         //   参见：https://developer.mozilla.org/zh-CN/docs/Web/API/Navigator/language
         "findLanguageFile": [
           {
