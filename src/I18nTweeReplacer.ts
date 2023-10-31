@@ -56,7 +56,7 @@ export class ReplaceInfoManagerIt extends CustomReadonlyMapHelper<ItemId, Replac
         if (isNil(id)) {
             return undefined;
         }
-        // TODO language and fallback
+        // TODO use language and fallback
         return assign({}, id, this.parent.replaceItem.get(key), this.parent.findItem.get(key));
     }
 
@@ -72,9 +72,9 @@ export class ReplaceInfoManager {
     replaceItem: Map<string, Map<ItemId, ReplaceTableItem>> = new Map<string, Map<ItemId, ReplaceTableItem>>()
     findItem: Map<string, Map<ItemId, FindTableItem>> = new Map<string, Map<ItemId, FindTableItem>>()
 
-    // TODO
+    // TODO load language from ModLoader.LanguageManager
     findLanguage: string;
-    fallbackfindLanguage: string;
+    fallbackFindLanguage: string;
     replaceLanguage: string;
     fallbackReplaceLanguage: string;
 
@@ -144,6 +144,9 @@ export class ReplaceInfoManager {
     }
 
     checkValid() {
+        // TODO check every idItem have replaceItem and findItem
+        //      and the fallback Language must have item (error it if not)
+        //      and the other language need item (warn it if not)
         for (const [id, item] of this.idItem) {
             if (!this.replaceItem.has(id)) {
                 console.error(`[I18nTweeReplacer ReplaceInfoManager] checkValid() mod[${this.modName}] cannot find replaceItem for id: ${id}`);
@@ -181,12 +184,17 @@ export interface ReplaceIndex {
     all?: boolean;
 }
 
+export interface LanguageFileItem {
+    language: string;
+    file: string;
+}
+
 export interface ReplaceConfig {
     replaceIndexFile: string;
     mainFindLanguage: string;
     mainReplaceLanguage: string;
-    findLanguageFile: string[];
-    replaceLanguageFile: string[];
+    findLanguageFile: LanguageFileItem[];
+    replaceLanguageFile: LanguageFileItem[];
 }
 
 export function checkReplaceIndex(a: any): a is ReplaceIndex {
@@ -213,11 +221,12 @@ export function checkReplaceTableItem(a: any): a is ReplaceTableItem {
 export function checkReplaceConfig(a: any): a is ReplaceConfig {
     return a
         && isString(a.replaceIndexFile)
-        && isString(a.mainLanguage)
+        && isString(a.mainFindLanguage)
+        && isString(a.mainReplaceLanguage)
         && isArray(a.findLanguageFile)
-        && every(a.findLanguageFile, isString)
+        && every(a.findLanguageFile, T => isString(T.language) && isString(T.file))
         && isArray(a.replaceLanguageFile)
-        && every(a.replaceLanguageFile, isString)
+        && every(a.replaceLanguageFile, T => isString(T.language) && isString(T.file))
         ;
 }
 
@@ -297,23 +306,26 @@ export class I18nTweeReplacer implements AddonPluginHookPointEx {
         replaceIndex.forEach(T => ri.replaceInfoManager!.addIdItem(T));
 
         for (const p of params.findLanguageFile) {
-            const findLanguageFile = await this.readFile(ri.modZip, p, 'findLanguageFile');
+            const findLanguageFile = await this.readFile(ri.modZip, p.file, 'findLanguageFile');
             if (!(isArray(findLanguageFile) && every(findLanguageFile, checkFindTableItem))) {
                 console.error('[I18nTweeReplacer] do_patch() invalid findLanguageFile.', [ri.mod, findLanguageFile]);
                 this.logger.error(`[I18nTweeReplacer] do_patch() invalid findLanguageFile: ${ri.mod.name}`);
                 continue;
             }
-            findLanguageFile.forEach(T => ri.replaceInfoManager!.addFindItem(T));
+            findLanguageFile.forEach(T => ri.replaceInfoManager!.addFindItem(p.language, T));
         }
         for (const p of params.replaceLanguageFile) {
-            const replaceLanguageFile = await this.readFile(ri.modZip, p, 'replaceLanguageFile');
+            const replaceLanguageFile = await this.readFile(ri.modZip, p.file, 'replaceLanguageFile');
             if (!(isArray(replaceLanguageFile) && every(replaceLanguageFile, checkReplaceTableItem))) {
                 console.error('[I18nTweeReplacer] do_patch() invalid replaceLanguageFile.', [ri.mod, replaceLanguageFile]);
                 this.logger.error(`[I18nTweeReplacer] do_patch() invalid replaceLanguageFile: ${ri.mod.name}`);
                 continue;
             }
-            replaceLanguageFile.forEach(T => ri.replaceInfoManager!.addReplaceItem(T));
+            replaceLanguageFile.forEach(T => ri.replaceInfoManager!.addReplaceItem(p.language, T));
         }
+
+        ri.replaceInfoManager.fallbackFindLanguage = params.mainFindLanguage;
+        ri.replaceInfoManager.fallbackReplaceLanguage = params.mainReplaceLanguage;
 
         ri.replaceInfoManager.checkValid();
 
