@@ -65,7 +65,7 @@ this mod export addon:
 ```json5
 [
   {
-    // 任意个字符串或数字，必须唯一
+    // 任意字符串或数字，必须唯一
     id: "12345-67890-abcde-fghij",
     passage: "passageName",
     // debug 显示替换过程，此项可以不存在
@@ -81,7 +81,7 @@ this mod export addon:
 ```json5
 [
   {
-    // 任意个字符串或数字，必须和replaceIndexFile中的id一一对应
+    // 任意字符串或数字，必须和replaceIndexFile中的id一一对应
     id: "12345-67890-abcde-fghij",
     // 以下 findString / findRegex 两个二选一，有且只能存在一个
     // 使用字符串精准匹配
@@ -99,7 +99,7 @@ this mod export addon:
 ```json5
 [
   {
-    // 任意个字符串或数字，必须和replaceIndexFile中的id一一对应
+    // 任意字符串或数字，必须和replaceIndexFile中的id一一对应
     id: "12345-67890-abcde-fghij",
     // 以下 replace / replaceFile 两个二选一，有且只能存在一个
     // 使用字符串替换
