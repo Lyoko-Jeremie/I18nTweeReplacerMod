@@ -22,6 +22,8 @@ this mod export addon:
         // 索引文件
         "replaceIndexFile": "to/file.json5",
         // 搜索文件（以语言列表的形式）
+        // 其中的 language 项对应到 Navigator.language 
+        //   参见：https://developer.mozilla.org/zh-CN/docs/Web/API/Navigator/language
         "findLanguageFile": [
           {
             "language": "zh-CN",
