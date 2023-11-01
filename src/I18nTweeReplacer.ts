@@ -27,65 +27,97 @@ export class ReplaceInfoManagerIt extends CustomReadonlyMapHelper<ItemId, Replac
     }
 
     get size() {
-        return this.parent.idItem.size;
+        return this.parent.idItemList.length;
     };
 
     entries(): IterableIterator<[ItemId, ReplaceInfoItem]> {
-        return new CustomIterableIterator<[ItemId, ReplaceInfoItem], ReplaceInfoManager, ItemId[]>(
+        return new CustomIterableIterator<[ItemId, ReplaceInfoItem], ReplaceInfoManager, ReplaceIndex[]>(
             this.parent,
-            (index, p, ito) => {
-                if (index >= p.idItem.size) {
+            (index, p, ito): IteratorResult<[ItemId, ReplaceInfoItem]> => {
+                if (index >= ito.cache.length) {
                     return {done: true, value: undefined};
                 } else {
                     const it = ito.cache[index];
-                    const itt = this.get(it);
+                    const itt = this.get(it.id);
                     // console.log('entries()', index, it, itt);
                     if (!it || !itt) {
                         console.error('entries() (!it || !itt)', index, it, itt);
                         throw new Error('entries() (!it || !itt)');
                     }
-                    return {done: false, value: [it, itt]};
+                    return {done: false, value: [it.id, itt]};
                 }
             },
-            Array.from(this.parent.idItem.keys()),
+            this.parent.idItemList,
         );
     }
 
     get(key: ItemId): ReplaceInfoItem | undefined {
-        const id = this.parent.idItem.get(key);
+        const id = this.parent.idItemMap.get(key);
         if (isNil(id)) {
             return undefined;
         }
-        // TODO use language and fallback
-        return assign({}, id, this.parent.replaceItem.get(key), this.parent.findItem.get(key));
+        // use language and fallback
+        return assign({}, id, this.parent.getReplace(key) || {}, this.parent.getFind(key) || {});
     }
 
     has(key: ItemId): boolean {
-        return this.parent.idItem.has(key);
+        return this.parent.idItemMap.has(key);
     }
 
 }
 
 export class ReplaceInfoManager {
 
-    idItem: Map<ItemId, ReplaceIndex> = new Map<ItemId, ReplaceIndex>();
+    idItemList: ReplaceIndex[] = [];
+    idItemMap: Map<ItemId, ReplaceIndex> = new Map<ItemId, ReplaceIndex>();
     replaceItem: Map<string, Map<ItemId, ReplaceTableItem>> = new Map<string, Map<ItemId, ReplaceTableItem>>()
     findItem: Map<string, Map<ItemId, FindTableItem>> = new Map<string, Map<ItemId, FindTableItem>>()
 
-    // TODO load language from ModLoader.LanguageManager
-    findLanguage: string;
-    fallbackFindLanguage: string;
-    replaceLanguage: string;
-    fallbackReplaceLanguage: string;
+    get findLanguage() {
+        return this._findLanguage;
+    }
+
+    get fallbackFindLanguage() {
+        return this._fallbackFindLanguage;
+    }
+
+    get replaceLanguage() {
+        return this._replaceLanguage;
+    }
+
+    get fallbackReplaceLanguage() {
+        return this._fallbackReplaceLanguage;
+    }
 
     constructor(
         private logger: LogWrapper,
         private modName: string,
+        private _findLanguage: string,
+        private _fallbackFindLanguage: string,
+        private _replaceLanguage: string,
+        private _fallbackReplaceLanguage: string,
     ) {
     }
 
     getReadOnlyMap() {
         return new ReplaceInfoManagerIt(this);
+    }
+
+    checkReplaceInfoItemIsValid(a: ReplaceInfoItem): boolean {
+        return checkReplaceIndex(a)
+            && checkFindTableItem(a)
+            && checkReplaceTableItem(a)
+            ;
+    }
+
+    getReplace(id: ItemId) {
+        return this.replaceItem.get(this._replaceLanguage)?.get(id)
+            || this.replaceItem.get(this._fallbackReplaceLanguage)?.get(id);
+    }
+
+    getFind(id: ItemId) {
+        return this.findItem.get(this._findLanguage)?.get(id)
+            || this.findItem.get(this._fallbackFindLanguage)?.get(id);
     }
 
     addIdItem(item: ReplaceIndex) {
@@ -94,11 +126,13 @@ export class ReplaceInfoManager {
             this.logger.error(`[I18nTweeReplacer ReplaceInfoManager] addIdItem() mod[${this.modName}] invalid IdItem: [${item}]`);
             return;
         }
-        if (this.idItem.has(item.id)) {
-            console.warn(`[I18nTweeReplacer ReplaceInfoManager] addIdItem() mod[${this.modName}] duplicate IdItem:`, item);
-            this.logger.warn(`[I18nTweeReplacer ReplaceInfoManager] addIdItem() mod[${this.modName}] duplicate IdItem: [${item}]`);
+        if (this.idItemMap.has(item.id)) {
+            console.error(`[I18nTweeReplacer ReplaceInfoManager] addIdItem() mod[${this.modName}] duplicate IdItem:`, [item, this.idItemList.find(T => T.id === item.id)]);
+            this.logger.error(`[I18nTweeReplacer ReplaceInfoManager] addIdItem() mod[${this.modName}] duplicate IdItem: [${item}]`);
+            return;
         }
-        this.idItem.set(item.id, item);
+        this.idItemMap.set(item.id, item);
+        this.idItemList.push(item);
     }
 
     addReplaceItem(language: string, item: ReplaceTableItem) {
@@ -115,7 +149,7 @@ export class ReplaceInfoManager {
             console.warn(`[I18nTweeReplacer ReplaceInfoManager] addReplaceItem() mod[${this.modName}] duplicate ReplaceItem:`, item);
             this.logger.warn(`[I18nTweeReplacer ReplaceInfoManager] addReplaceItem() mod[${this.modName}] duplicate ReplaceItem: [${item}]`);
         }
-        if (!this.idItem.has(item.id)) {
+        if (!this.idItemMap.has(item.id)) {
             console.warn(`[I18nTweeReplacer ReplaceInfoManager] addReplaceItem() mod[${this.modName}] cannot find idItem for ReplaceItem:`, item);
             this.logger.warn(`[I18nTweeReplacer ReplaceInfoManager] addReplaceItem() mod[${this.modName}] cannot find idItem for ReplaceItem: [${item}]`);
         }
@@ -136,7 +170,7 @@ export class ReplaceInfoManager {
             console.warn(`[I18nTweeReplacer ReplaceInfoManager] addFindItem() mod[${this.modName}] duplicate FindItem:`, item);
             this.logger.warn(`[I18nTweeReplacer ReplaceInfoManager] addFindItem() mod[${this.modName}] duplicate FindItem: [${item}]`);
         }
-        if (!this.idItem.has(item.id)) {
+        if (!this.idItemMap.has(item.id)) {
             console.warn(`[I18nTweeReplacer ReplaceInfoManager] addFindItem() mod[${this.modName}] cannot find idItem for FindItem:`, item);
             this.logger.warn(`[I18nTweeReplacer ReplaceInfoManager] addFindItem() mod[${this.modName}] cannot find idItem for FindItem: [${item}]`);
         }
@@ -144,17 +178,35 @@ export class ReplaceInfoManager {
     }
 
     checkValid() {
-        // TODO check every idItem have replaceItem and findItem
+        // check every idItem have replaceItem and findItem
         //      and the fallback Language must have item (error it if not)
         //      and the other language need item (warn it if not)
-        for (const [id, item] of this.idItem) {
-            if (!this.replaceItem.has(id)) {
-                console.error(`[I18nTweeReplacer ReplaceInfoManager] checkValid() mod[${this.modName}] cannot find replaceItem for id: ${id}`);
-                this.logger.error(`[I18nTweeReplacer ReplaceInfoManager] checkValid() mod[${this.modName}] cannot find replaceItem for id: ${id}`);
+        for (const item of this.idItemList) {
+            for (const [language, ll] of this.replaceItem) {
+                if (language === this._fallbackReplaceLanguage) {
+                    if (!ll.has(item.id)) {
+                        console.error(`[I18nTweeReplacer ReplaceInfoManager] checkValid() mod[${this.modName}] cannot find replaceItem for id: ${item.id} fallbackReplaceLanguage: ${language}`);
+                        this.logger.error(`[I18nTweeReplacer ReplaceInfoManager] checkValid() mod[${this.modName}] cannot find replaceItem for id: ${item.id} fallbackReplaceLanguage: ${language}`);
+                    }
+                } else {
+                    if (!ll.has(item.id)) {
+                        console.warn(`[I18nTweeReplacer ReplaceInfoManager] checkValid() mod[${this.modName}] cannot find replaceItem for id: ${item.id} language: ${language}`);
+                        this.logger.warn(`[I18nTweeReplacer ReplaceInfoManager] checkValid() mod[${this.modName}] cannot find replaceItem for id: ${item.id} language: ${language}`);
+                    }
+                }
             }
-            if (!this.findItem.has(id)) {
-                console.error(`[I18nTweeReplacer ReplaceInfoManager] checkValid() mod[${this.modName}] cannot find findItem for id: ${id}`);
-                this.logger.error(`[I18nTweeReplacer ReplaceInfoManager] checkValid() mod[${this.modName}] cannot find findItem for id: ${id}`);
+            for (const [language, ll] of this.findItem) {
+                if (language === this._fallbackFindLanguage) {
+                    if (!ll.has(item.id)) {
+                        console.warn(`[I18nTweeReplacer ReplaceInfoManager] checkValid() mod[${this.modName}] cannot find findItem for id: ${item.id} fallbackFindLanguage: ${language}`);
+                        this.logger.warn(`[I18nTweeReplacer ReplaceInfoManager] checkValid() mod[${this.modName}] cannot find findItem for id: ${item.id} fallbackFindLanguage: ${language}`);
+                    }
+                } else {
+                    if (!ll.has(item.id)) {
+                        console.warn(`[I18nTweeReplacer ReplaceInfoManager] checkValid() mod[${this.modName}] cannot find findItem for id: ${item.id} language: ${language}`);
+                        this.logger.warn(`[I18nTweeReplacer ReplaceInfoManager] checkValid() mod[${this.modName}] cannot find findItem for id: ${item.id} language: ${language}`);
+                    }
+                }
             }
         }
     }
@@ -252,7 +304,7 @@ export class I18nTweeReplacer implements AddonPluginHookPointEx {
             addonName,
             mod,
             modZip,
-            replaceInfoManager: new ReplaceInfoManager(this.logger, mod.name),
+            replaceInfoManager: undefined,
         };
         this.info.set(mod.name, r);
         await this.loadLanguage(r);
@@ -275,7 +327,7 @@ export class I18nTweeReplacer implements AddonPluginHookPointEx {
     }
 
     async loadLanguage(ri: ReplaceInfo) {
-        if (!ri.replaceInfoManager) {
+        if (ri.replaceInfoManager) {
             // invalid inner state . never go there
             console.error('[I18nTweeReplacer] loadLanguage() (!ri.replaceInfoManager). invalid inner state . never go there.', [ri]);
             this.logger.error(`[I18nTweeReplacer] loadLanguage() (!ri.replaceInfoManager). invalid inner state . never go there. [${ri.mod.name}]`);
@@ -297,13 +349,24 @@ export class I18nTweeReplacer implements AddonPluginHookPointEx {
             return;
         }
 
+        ri.replaceInfoManager = new ReplaceInfoManager(
+            this.logger,
+            ri.mod.name,
+            FindLanguage,   // read from ModLoader.LanguageManager
+            params.mainFindLanguage,
+            ReplaceLanguage,   // read from ModLoader.LanguageManager
+            params.mainReplaceLanguage,
+        );
+
         const replaceIndex = await this.readFile(ri.modZip, params.replaceIndexFile, 'replaceIndexFile');
         if (!(isArray(replaceIndex) && every(replaceIndex, checkReplaceIndex))) {
             console.error('[I18nTweeReplacer] do_patch() invalid replaceIndex.', [ri.mod, replaceIndex]);
             this.logger.error(`[I18nTweeReplacer] do_patch() invalid replaceIndex: ${ri.mod.name}`);
             return;
         }
-        replaceIndex.forEach(T => ri.replaceInfoManager!.addIdItem(T));
+        replaceIndex.forEach((T: ReplaceIndex) => {
+            ri.replaceInfoManager!.addIdItem(T);
+        });
 
         for (const p of params.findLanguageFile) {
             const findLanguageFile = await this.readFile(ri.modZip, p.file, 'findLanguageFile');
@@ -312,7 +375,9 @@ export class I18nTweeReplacer implements AddonPluginHookPointEx {
                 this.logger.error(`[I18nTweeReplacer] do_patch() invalid findLanguageFile: ${ri.mod.name}`);
                 continue;
             }
-            findLanguageFile.forEach(T => ri.replaceInfoManager!.addFindItem(p.language, T));
+            findLanguageFile.forEach((T: FindTableItem) => {
+                ri.replaceInfoManager!.addFindItem(p.language, T);
+            });
         }
         for (const p of params.replaceLanguageFile) {
             const replaceLanguageFile = await this.readFile(ri.modZip, p.file, 'replaceLanguageFile');
@@ -321,11 +386,17 @@ export class I18nTweeReplacer implements AddonPluginHookPointEx {
                 this.logger.error(`[I18nTweeReplacer] do_patch() invalid replaceLanguageFile: ${ri.mod.name}`);
                 continue;
             }
-            replaceLanguageFile.forEach(T => ri.replaceInfoManager!.addReplaceItem(p.language, T));
+            replaceLanguageFile.forEach((T: ReplaceTableItem) => {
+                if (isString(T.replaceFile) && !isString(T.replace)) {
+                    const f = ri.modZip.zip.file(T.replaceFile as string);
+                    if (isNil(f)) {
+                        console.error('[I18nTweeReplacer] do_patch() (!f).', [ri.mod, T]);
+                        this.logger.error(`[I18nTweeReplacer] do_patch() cannot find replaceFile: [${ri.mod.name}] [${T.replaceFile}]`);
+                    }
+                }
+                ri.replaceInfoManager!.addReplaceItem(p.language, T);
+            });
         }
-
-        ri.replaceInfoManager.fallbackFindLanguage = params.mainFindLanguage;
-        ri.replaceInfoManager.fallbackReplaceLanguage = params.mainReplaceLanguage;
 
         ri.replaceInfoManager.checkValid();
 
@@ -358,6 +429,12 @@ export class I18nTweeReplacer implements AddonPluginHookPointEx {
             return;
         }
         for (const p of ri.replaceInfoManager.getReadOnlyMap().values()) {
+
+            if (!ri.replaceInfoManager.checkReplaceInfoItemIsValid(p)) {
+                console.error('[I18nTweeReplacer] do_patch() (!ri.replaceInfoManager.checkReplaceInfoItemIsValid(p)). invalid replaceInfoItem. skip. ', [ri.mod, p]);
+                this.logger.error(`[I18nTweeReplacer] do_patch() invalid replaceInfoItem. skip. mod[${ri.mod.name}] [${p.id}]`);
+                continue;
+            }
 
             // falsy value will be false
             const debugFlag = !!p.debug;
