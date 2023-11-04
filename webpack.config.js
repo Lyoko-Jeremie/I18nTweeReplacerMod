@@ -20,7 +20,7 @@ const config = {
   entry: './src/init.ts',
   output: {
     path: path.resolve(__dirname, 'dist'),
-    filename: 'TweeReplacer.js',
+    filename: 'I18nTweeReplacer.js',
   },
   devtool: 'inline-source-map',
   target: 'web',
