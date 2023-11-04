@@ -118,11 +118,22 @@ this mod export addon:
 
 ```
 
-                 * ---> findItem[]
-                /           ^
-indexItem[] --*             |
-                \           v
-                 * ---> replaceItem[]
+                    * ---> findItem[]
+                  /           ^
+                 /            |
+                /             |
+indexItem[] --*               |
+                \             |
+                 \            |
+                  \           v
+                    * ---> replaceItem[]
+
+
+indexItem[N] - findItem[][N]
+indexItem[N] - replaceItem[][N]
+
+indexItem - findItem[N] - replaceItem[M]
+
 
 ```
 
