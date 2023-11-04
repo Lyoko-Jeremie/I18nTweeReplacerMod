@@ -66,6 +66,27 @@ export class ReplaceInfoManagerIt extends CustomReadonlyMapHelper<ItemId, Replac
 
 }
 
+function findMaxPrefixItem(s: string, sl: string[]): [string, number] {
+    let bestMatch = '';
+    let bestMatchIndex = -1;
+    sl.forEach((str, index) => {
+        if (str.startsWith(s)) {
+            if (str.length > bestMatch.length) {
+                bestMatch = str;
+                bestMatchIndex = index;
+            }
+            return;
+        }
+        if (s.startsWith(str)) {
+            if (s.length > bestMatch.length) {
+                bestMatch = str;
+                bestMatchIndex = index;
+            }
+        }
+    });
+    return [bestMatch, bestMatchIndex];
+}
+
 export class ReplaceInfoManager {
 
     idItemList: ReplaceIndex[] = [];
@@ -99,6 +120,34 @@ export class ReplaceInfoManager {
     ) {
     }
 
+    _main_findLanguage: string | undefined;
+    _main_replaceLanguage: string | undefined;
+
+    calcMainLanguage() {
+        if (!this._main_findLanguage) {
+            if (this.findItem.has(this._findLanguage)) {
+                this._main_findLanguage = this._findLanguage;
+            } else {
+                const kl = findMaxPrefixItem(this._findLanguage, Array.from(this.findItem.keys()));
+                if (kl[1] >= 0) {
+                    this._main_findLanguage = kl[0];
+                }
+            }
+        }
+        if (!this._main_replaceLanguage) {
+            if (this.replaceItem.has(this._replaceLanguage)) {
+                this._main_replaceLanguage = this._replaceLanguage;
+            } else {
+                const kl = findMaxPrefixItem(this._replaceLanguage, Array.from(this.replaceItem.keys()));
+                if (kl[1] >= 0) {
+                    this._main_replaceLanguage = kl[0];
+                }
+            }
+        }
+        console.log('[I18nTweeReplacer] calcMainLanguage result:', [this.modName, this._main_findLanguage, this._main_replaceLanguage]);
+        this.logger.log(`[I18nTweeReplacer] calcMainLanguage mod[${this.modName}] find[${this._main_findLanguage}] replace[${this._main_replaceLanguage}]`);
+    }
+
     getReadOnlyMap() {
         return new ReplaceInfoManagerIt(this);
     }
@@ -111,13 +160,19 @@ export class ReplaceInfoManager {
     }
 
     getReplace(id: ItemId) {
-        return this.replaceItem.get(this._replaceLanguage)?.get(id)
-            || this.replaceItem.get(this._fallbackReplaceLanguage)?.get(id);
+        if (this._main_replaceLanguage) {
+            return this.replaceItem.get(this._main_replaceLanguage)?.get(id)
+                || this.replaceItem.get(this._fallbackReplaceLanguage)?.get(id);
+        }
+        return this.replaceItem.get(this._fallbackReplaceLanguage)?.get(id);
     }
 
     getFind(id: ItemId) {
-        return this.findItem.get(this._findLanguage)?.get(id)
-            || this.findItem.get(this._fallbackFindLanguage)?.get(id);
+        if (this._main_findLanguage) {
+            return this.findItem.get(this._main_findLanguage)?.get(id)
+                || this.findItem.get(this._fallbackFindLanguage)?.get(id);
+        }
+        return this.findItem.get(this._fallbackFindLanguage)?.get(id);
     }
 
     addIdItem(item: ReplaceIndex) {
@@ -352,9 +407,9 @@ export class I18nTweeReplacer implements AddonPluginHookPointEx {
         ri.replaceInfoManager = new ReplaceInfoManager(
             this.logger,
             ri.mod.name,
-            FindLanguage,   // read from ModLoader.LanguageManager
+            this.gSC2DataManager.getLanguageManager().mainLanguage,
             params.mainFindLanguage,
-            ReplaceLanguage,   // read from ModLoader.LanguageManager
+            this.gSC2DataManager.getLanguageManager().getLanguage(),
             params.mainReplaceLanguage,
         );
 
@@ -398,6 +453,7 @@ export class I18nTweeReplacer implements AddonPluginHookPointEx {
             });
         }
 
+        ri.replaceInfoManager.calcMainLanguage();
         ri.replaceInfoManager.checkValid();
 
         console.log('[I18nTweeReplacer] loadLanguage result:', ri.replaceInfoManager);
