@@ -7,7 +7,7 @@ import type {SC2DataManager} from "../../../dist-BeforeSC2/SC2DataManager";
 import type {ModUtils} from "../../../dist-BeforeSC2/Utils";
 import {isNil, isString, isNumber, assign, isArray, every} from "lodash";
 import {CustomIterableIterator, CustomReadonlyMapHelper} from "./CustomReadonlyMapHelper";
-import JSON5 from 'json5'
+import JSON5 from 'json5';
 
 interface ReplaceInfo {
     addonName: string;
@@ -220,7 +220,7 @@ export class ReplaceInfoManager {
         if (!this.findItem.has(language)) {
             this.findItem.set(language, new Map<ItemId, FindTableItem>());
         }
-        const ll = this.replaceItem.get(language)!;
+        const ll = this.findItem.get(language)!;
         if (ll.has(item.id)) {
             console.warn(`[I18nTweeReplacer ReplaceInfoManager] addFindItem() mod[${this.modName}] duplicate FindItem:`, item);
             this.logger.warn(`[I18nTweeReplacer ReplaceInfoManager] addFindItem() mod[${this.modName}] duplicate FindItem: [${item}]`);
