@@ -312,16 +312,30 @@ export function checkReplaceIndex(a: any): a is ReplaceIndex {
 }
 
 export function checkFindTableItem(a: any): a is FindTableItem {
-    return a
-        && (isString(a.id) || isNumber(a.id))
-        && (isString(a.findString) || isString(a.findRegex))
+    if (!a) {
+        return false;
+    }
+    if (!(isString(a.id) || isNumber(a.id))) {
+        return false;
+    }
+    if (!!a.noop) {
+        return true;
+    }
+    return (isString(a.findString) || isString(a.findRegex))
         ;
 }
 
 export function checkReplaceTableItem(a: any): a is ReplaceTableItem {
-    return a
-        && (isString(a.id) || isNumber(a.id))
-        && (isString(a.replace) || isString(a.replaceFile))
+    if (!a) {
+        return false;
+    }
+    if (!(isString(a.id) || isNumber(a.id))) {
+        return false;
+    }
+    if (!!a.noop) {
+        return true;
+    }
+    return (isString(a.replace) || isString(a.replaceFile))
         ;
 }
 
@@ -489,6 +503,11 @@ export class I18nTweeReplacer implements AddonPluginHookPointEx {
             if (!ri.replaceInfoManager.checkReplaceInfoItemIsValid(p)) {
                 console.error('[I18nTweeReplacer] do_patch() (!ri.replaceInfoManager.checkReplaceInfoItemIsValid(p)). invalid replaceInfoItem. skip. ', [ri.mod, p]);
                 this.logger.error(`[I18nTweeReplacer] do_patch() invalid replaceInfoItem. skip. mod[${ri.mod.name}] [${p.id}]`);
+                continue;
+            }
+
+            if (!!p.noop) {
+                // skip
                 continue;
             }
 
