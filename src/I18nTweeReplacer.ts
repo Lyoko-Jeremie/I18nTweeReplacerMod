@@ -113,9 +113,9 @@ export class ReplaceInfoManager {
     constructor(
         private logger: LogWrapper,
         private modName: string,
-        private _findLanguage: string,
+        private _findLanguage: string,      // from i18n or undefined
         private _fallbackFindLanguage: string,
-        private _replaceLanguage: string,
+        private _replaceLanguage: string,   // navigator.language
         private _fallbackReplaceLanguage: string,
     ) {
     }
@@ -134,6 +134,11 @@ export class ReplaceInfoManager {
                 }
             }
         }
+        if (!this._main_findLanguage) {
+            console.log('[I18nTweeReplacer] calcMainLanguage cannot calc main_findLanguage. use fallbackFindLanguage.', [this.modName, this._fallbackFindLanguage, Array.from(this.findItem.keys())]);
+            this.logger.log(`[I18nTweeReplacer] calcMainLanguage cannot calc main_findLanguage. use fallbackFindLanguage. [${this.modName}] [${this._main_findLanguage}] [${JSON.stringify(Array.from(this.findItem.keys()))}]`);
+            this._main_findLanguage = this._fallbackFindLanguage;
+        }
         if (!this._main_replaceLanguage) {
             if (this.replaceItem.has(this._replaceLanguage)) {
                 this._main_replaceLanguage = this._replaceLanguage;
@@ -143,6 +148,11 @@ export class ReplaceInfoManager {
                     this._main_replaceLanguage = kl[0];
                 }
             }
+        }
+        if (!this._main_replaceLanguage) {
+            console.log('[I18nTweeReplacer] calcMainLanguage cannot calc main_replaceLanguage. use fallbackReplaceLanguage.', [this.modName, this._fallbackFindLanguage, Array.from(this.replaceItem.keys())]);
+            this.logger.log(`[I18nTweeReplacer] calcMainLanguage cannot calc main_replaceLanguage. use fallbackReplaceLanguage. [${this.modName}] [${this._main_replaceLanguage}] [${JSON.stringify(Array.from(this.replaceItem.keys()))}]`);
+            this._main_replaceLanguage = this._fallbackReplaceLanguage;
         }
         console.log('[I18nTweeReplacer] calcMainLanguage result:', [this.modName, this._main_findLanguage, this._main_replaceLanguage]);
         this.logger.log(`[I18nTweeReplacer] calcMainLanguage mod[${this.modName}] find[${this._main_findLanguage}] replace[${this._main_replaceLanguage}]`);
