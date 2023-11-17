@@ -1,0 +1,127 @@
+
+name: Build Package
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
+      fail-fast: false
+
+      matrix:
+        # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs
+        os: [ ubuntu-latest ]
+        node-version: [ 18.x ]
+        #        os: [ ubuntu-latest , windows-latest ]
+
+    steps:
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: ModLoader
+        uses: actions/checkout@v4
+        with:
+          repository: Lyoko-Jeremie/sugarcube-2-ModLoader
+          path: ModLoader
+          ref: master
+
+#          submodules: recursive
+
+      - uses: actions/checkout@v4
+        with:
+          path: ModLoader/mod/SimpleCryptWrapper
+          submodules: recursive
+
+      - name: Build ModLoader
+        working-directory: ${{ github.workspace }}/ModLoader
+        run: |
+          yarn install
+          yarn run ts:BeforeSC2
+          yarn run webpack:BeforeSC2
+          yarn run ts:ForSC2
+          yarn run webpack:insertTools
+
+      - name: Build I18nTweeReplacer
+        working-directory: ${{ github.workspace }}/ModLoader/mod/I18nTweeReplacer
+        run: |
+          yarn install
+          yarn run build:ts
+          yarn run build:webpack
+          yarn run build:tools
+          node "${{ github.workspace }}/ModLoader/dist-insertTools/packModZip.js" "boot.json"
+      - name: Copy I18nTweeReplacer
+        uses: Lyoko-Jeremie/js-copy-github-action@master
+        with:
+          srcBase: ${{ github.workspace }}/ModLoader/mod/I18nTweeReplacer
+          source: ${{ github.workspace }}/ModLoader/mod/I18nTweeReplacer/I18nTweeReplacer.mod.zip
+          destBase: ${{ github.workspace }}/out
+          target: ${{ github.workspace }}/out
+
+#      - name: Copy output dir (Linux)
+#        if: runner.os == 'Linux'
+#        run: cp -r "${{ github.workspace }}/ModLoader/mod/I18nTweeReplacer/out" "${{ github.workspace }}/out"
+#
+#      - name: Copy output dir (Windows)
+#        if: runner.os == 'Windows'
+#        run: copy -Path "${{ github.workspace }}/ModLoader/mod/I18nTweeReplacer/out" -Destination "${{ github.workspace }}/out" -Recurse
+
+
+#      - name: Copy packModZip
+#        uses: Lyoko-Jeremie/js-copy-github-action@master
+#        with:
+#          srcBase: ${{ github.workspace }}/ModLoader/dist-insertTools
+#          source: ${{ github.workspace }}/ModLoader/dist-insertTools/packModZip.js
+#          destBase: ${{ github.workspace }}/out
+#          target: ${{ github.workspace }}/out
+#      - name: Copy I18nTweeReplacer
+#        uses: Lyoko-Jeremie/js-copy-github-action@master
+#        with:
+#          srcBase: ${{ github.workspace }}/ModLoader/mod/I18nTweeReplacer/dist
+#          source: ${{ github.workspace }}/ModLoader/mod/I18nTweeReplacer/dist/I18nTweeReplacer.js
+#          destBase: ${{ github.workspace }}/out
+#          target: ${{ github.workspace }}/out
+#      - name: Copy earlyload
+#        uses: Lyoko-Jeremie/js-copy-github-action@master
+#        with:
+#          srcBase: ${{ github.workspace }}/ModLoader/mod/I18nTweeReplacer/dist
+#          source: ${{ github.workspace }}/ModLoader/mod/I18nTweeReplacer/dist/earlyload/earlyload.js
+#          destBase: ${{ github.workspace }}/out
+#          target: ${{ github.workspace }}/out
+      - name: Copy ModFormatTranslator
+        uses: Lyoko-Jeremie/js-copy-github-action@master
+        with:
+          srcBase: ${{ github.workspace }}/ModLoader/mod/I18nTweeReplacer/dist-tools
+          source: ${{ github.workspace }}/ModLoader/mod/I18nTweeReplacer/dist-tools/ModFormatTranslator.js
+          destBase: ${{ github.workspace }}/out
+          target: ${{ github.workspace }}/out
+      - name: Copy ModFormatTranslator.bat
+        uses: Lyoko-Jeremie/js-copy-github-action@master
+        with:
+          srcBase: ${{ github.workspace }}/ModLoader/mod/I18nTweeReplacer/tools
+          source: ${{ github.workspace }}/ModLoader/mod/I18nTweeReplacer/tools/ModFormatTranslator.bat
+          destBase: ${{ github.workspace }}/out
+          target: ${{ github.workspace }}/out
+
+      - name: Upload Package
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v3
+        with:
+          name: I18nTweeReplacer Package (Linux Build)
+          path: ${{ github.workspace }}/out
+
+      - name: Upload Package
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v3
+        with:
+          name: I18nTweeReplacer Package (Windows Build)
+          path: ${{ github.workspace }}/out
