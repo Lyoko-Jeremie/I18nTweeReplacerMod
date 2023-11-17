@@ -3,7 +3,6 @@ import path from 'path';
 import process from 'process';
 import {promisify} from 'util';
 import JSON5 from 'json5';
-import console from "console";
 import {isArray, isString, isNil} from "lodash";
 import type {ModBootJsonAddonPlugin} from '../../../dist-BeforeSC2/ModLoader';
 
