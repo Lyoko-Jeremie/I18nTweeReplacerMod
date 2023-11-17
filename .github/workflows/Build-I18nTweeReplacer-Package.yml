@@ -51,6 +51,11 @@ jobs:
           yarn run ts:ForSC2
           yarn run webpack:insertTools
 
+      - uses: actions/checkout@v4
+        with:
+          path: ModLoader/mod/I18nTweeReplacer
+          submodules: recursive
+
       - name: Build I18nTweeReplacer
         working-directory: ${{ github.workspace }}/ModLoader/mod/I18nTweeReplacer
         run: |
