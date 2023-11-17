@@ -7,6 +7,11 @@ import type {SC2DataManager} from "../../../dist-BeforeSC2/SC2DataManager";
 import type {ModUtils} from "../../../dist-BeforeSC2/Utils";
 import {isNil, isString, isNumber, assign, isArray, every} from "lodash";
 import {CustomIterableIterator, CustomReadonlyMapHelper} from "./CustomReadonlyMapHelper";
+import type {
+    TweeReplacerLinkerInterface,
+    TweeReplacerLinkerClientInterface,
+    TweeReplacerLinkerClientCallbackType,
+} from "../../TweeReplacerLinker/dist/TweeReplacerLinkerInterface";
 import JSON5 from 'json5';
 
 interface ReplaceInfo {
@@ -364,6 +369,8 @@ export function checkReplaceConfig(a: any): a is ReplaceConfig {
 export class I18nTweeReplacer implements AddonPluginHookPointEx {
     private readonly logger: LogWrapper;
 
+    nowModName!: string;
+
     constructor(
         public gSC2DataManager: SC2DataManager,
         public gModUtils: ModUtils,
@@ -374,6 +381,57 @@ export class I18nTweeReplacer implements AddonPluginHookPointEx {
             'I18nTweeReplacerAddon',
             this,
         );
+        const theName = this.gModUtils.getNowRunningModName();
+        if (!theName) {
+            console.error('[I18nTweeReplacer] init() (!theName).', [theName]);
+            this.logger.error(`[I18nTweeReplacer] init() [${theName}].`);
+            return;
+        }
+        this.nowModName = theName;
+        const mod = this.gModUtils.getMod(theName);
+        if (!mod) {
+            console.error('[I18nTweeReplacer] init() (!mod). ', [theName]);
+            this.logger.error(`[I18nTweeReplacer] init() (!mod). [${theName}].`);
+            return;
+        }
+        console.log('[I18nTweeReplacer] register modRef done.', [theName]);
+        this.logger.log(`[I18nTweeReplacer] register modRef done. [${theName}].`);
+        mod.modRef = this;
+    }
+
+    isLinkerMode = false;
+
+    async enableLinkerMode(): Promise<boolean> {
+        this.isLinkerMode = true;
+        return true;
+    }
+
+    linkerModRef: undefined | TweeReplacerLinkerInterface;
+
+    async afterEarlyLoad() {
+        // register to linker
+        const linkerMod = this.gModUtils.getMod('TweeReplacerLinker');
+        if (!linkerMod) {
+            console.warn('[I18nTweeReplacer] afterEarlyLoad() cannot find TweeReplacerLinker, now running in standalone mode.');
+            this.logger.warn('[I18nTweeReplacer] afterEarlyLoad() cannot find TweeReplacerLinker, now running in standalone mode.');
+            return;
+        }
+        if (!linkerMod.modRef?.registerClient) {
+            console.error('[I18nTweeReplacer] afterEarlyLoad() cannot find TweeReplacerLinker.registerClient(), linker invalid. now running in standalone mode.');
+            this.logger.error('[I18nTweeReplacer] afterEarlyLoad() cannot find TweeReplacerLinker.registerClient(), linker invalid. now running in standalone mode.');
+            return;
+        }
+        if (!linkerMod.modRef?.addUserMod) {
+            console.error('[I18nTweeReplacer] afterEarlyLoad() cannot find TweeReplacerLinker.addUserMod(), linker invalid. now running in standalone mode.');
+            this.logger.error('[I18nTweeReplacer] afterEarlyLoad() cannot find TweeReplacerLinker.addUserMod(), linker invalid. now running in standalone mode.');
+            return;
+        }
+        if (!await linkerMod.modRef.registerClient(this)) {
+            console.error('[I18nTweeReplacer] afterEarlyLoad() TweeReplacerLinker.registerClient() failed. now running in standalone mode.');
+            this.logger.error('[I18nTweeReplacer] afterEarlyLoad() TweeReplacerLinker.registerClient() failed. now running in standalone mode.');
+            return;
+        }
+        this.linkerModRef = linkerMod.modRef as TweeReplacerLinkerInterface;
     }
 
     info: Map<string, ReplaceInfo> = new Map<string, ReplaceInfo>();
@@ -387,9 +445,36 @@ export class I18nTweeReplacer implements AddonPluginHookPointEx {
         };
         this.info.set(mod.name, r);
         await this.loadLanguage(r);
+
+        if (this.isLinkerMode) {
+            if (!this.linkerModRef) {
+                // state invalid
+                console.error('[I18nTweeReplacer] registerMod() (!this.linkerModRef).');
+                this.logger.error('[I18nTweeReplacer] registerMod() (!this.linkerModRef).');
+                this.isLinkerMode = false;
+                return;
+            }
+            if (!await this.linkerModRef.addUserMod(
+                this.nowModName,
+                mod.name,
+                async (sc: SC2DataInfo) => {
+                    await this.do_patch(r, sc);
+                    r.replaceInfoManager = undefined;
+                },
+            )) {
+                console.error('[I18nTweeReplacer] registerMod() addUserMod() failed.', [this.nowModName, mod.name, mod]);
+                this.logger.error(`[I18nTweeReplacer] registerMod() addUserMod() failed. [${this.nowModName}] [${mod.name}]`);
+                // this.isLinkerMode = false;
+                return;
+            }
+        }
     }
 
     async afterPatchModToGame() {
+        if (this.isLinkerMode) {
+            // this is provided to linker
+            return;
+        }
         const scOld = this.gSC2DataManager.getSC2DataInfoAfterPatch();
         const sc = scOld.cloneSC2DataInfo();
         for (const [name, ri] of this.info) {
