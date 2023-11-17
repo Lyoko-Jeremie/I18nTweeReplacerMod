@@ -28,7 +28,7 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
-      - name: ModLoader
+      - name: Checkout ModLoader
         uses: actions/checkout@v4
         with:
           repository: Lyoko-Jeremie/sugarcube-2-ModLoader
@@ -36,11 +36,6 @@ jobs:
           ref: master
 
 #          submodules: recursive
-
-      - uses: actions/checkout@v4
-        with:
-          path: ModLoader/mod/SimpleCryptWrapper
-          submodules: recursive
 
       - name: Build ModLoader
         working-directory: ${{ github.workspace }}/ModLoader
@@ -51,11 +46,26 @@ jobs:
           yarn run ts:ForSC2
           yarn run webpack:insertTools
 
-      - uses: actions/checkout@v4
+      - name: Checkout TweeReplacerLinker
+        uses: actions/checkout@v4
+        with:
+          repository: Lyoko-Jeremie/TweeReplacerLinkerAddon
+          path: ModLoader/mod/TweeReplacerLinker
+          submodules: recursive
+      - name: Build TweeReplacerLinker
+        working-directory: ${{ github.workspace }}/ModLoader/mod/TweeReplacerLinker
+        run: |
+          yarn install
+          yarn run ts:type
+          yarn run build:ts
+          yarn run build:webpack
+          node "${{ github.workspace }}/ModLoader/dist-insertTools/packModZip.js" "boot.json"
+
+      - name: Checkout I18nTweeReplacer
+        uses: actions/checkout@v4
         with:
           path: ModLoader/mod/I18nTweeReplacer
           submodules: recursive
-
       - name: Build I18nTweeReplacer
         working-directory: ${{ github.workspace }}/ModLoader/mod/I18nTweeReplacer
         run: |
