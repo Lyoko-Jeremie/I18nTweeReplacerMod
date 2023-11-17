@@ -402,6 +402,8 @@ export class I18nTweeReplacer implements AddonPluginHookPointEx {
     isLinkerMode = false;
 
     async enableLinkerMode(): Promise<boolean> {
+        console.log(`[I18nTweeReplacer] now enableLinkerMode`);
+        this.logger.log(`[I18nTweeReplacer] now enableLinkerMode`);
         this.isLinkerMode = true;
         return true;
     }
