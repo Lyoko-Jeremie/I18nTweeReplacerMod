@@ -6,11 +6,11 @@
   "scripts": {
     "ts:w": "tsc -w -p ./src_boot/tsconfig.json",
     "webpack:w": "webpack -w -c ./webpack.config.js",
-    "tools:w": "tsc -w -p ./tools/tsconfig.json",
+    "tools:w": "webpack -w -c ./webpack-tools.config.js",
     "======================": "",
     "build:ts": "tsc -p ./src_boot/tsconfig.json",
     "build:webpack": "webpack -c ./webpack.config.js",
-    "build:tools": "tsc -p ./tools/tsconfig.json"
+    "build:tools": "webpack -c ./webpack-tools.config.js"
   },
   "packageManager": "yarn@3.4.1",
   "dependencies": {

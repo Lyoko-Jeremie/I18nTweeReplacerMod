@@ -137,5 +137,23 @@ indexItem - findItem[N] - replaceItem[M]
 
 ```
 
+---
+
+## 转换工具 `ModFormatTranslator`
+
+本项目提供一个转换工具，可以将 `TweeReplacer` 的格式转换为 `I18nTweeReplacer` 的格式
+
+直接以如下格式调用即可
+
+
+```shell
+node <apth to ModFormatTraslator.js> <path to the boot.json that use TweeReplacer>
+```
+
+
+调用举例
+```shell
+node .\dist-tools\ModFormatTraslator.js h:\Code\DoL\DoLMod\fenghuang-mods\boot.json
+```
 
 
